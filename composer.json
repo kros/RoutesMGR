@@ -1,0 +1,19 @@
+{
+    "name": "kros/routes-mgr",
+    "description" : "Load properties from a property / init file as properties in an object.",
+     "homepage" : "https://github.com/kros/RoutesMGR",
+     "license" : "GNU Version 2",
+     "authors" : [{
+             "name" : "Oscar Ruiz",
+             "email" : "ormartin@gmail.com",
+             "homepage" : "https://github.com/kros",
+             "role" : "Developer"
+         }
+     ],
+     "autoload": {
+        "psr-4": {"Kros\\RoutesMGR\\": "src/"}
+     },
+     "keywords" : [
+         "routes"
+     ]   
+ }
