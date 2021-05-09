@@ -9,6 +9,7 @@ class Request{
     private $body;
     private $method;
     private $accept;
+    private $redirectURL;
     public function getUri(){
         return $this->uri;
     }
@@ -53,6 +54,15 @@ class Request{
     }
     public function setAccept($value){
         $this->accept=$value;
+    }
+    public function getRedirectURL(){
+        return $this->redirectURL;
+    }
+    public function setRedirectURL($value){
+        $path = explode('/', $value);
+        array_shift($path); // Hack; get rid of initials empty string
+    
+        $this->redirectURL=implode('/', $path);
     }
 }
 ?>
