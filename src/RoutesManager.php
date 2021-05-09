@@ -5,6 +5,7 @@ require "Route.php";
 require "Request.php";
 //require "Controller.php";
 
+use Exception;
 use Kros\RoutesMGR\Route;
 use Kros\RoutesMGR\Request;
 //use Kros\RoutesMGR\Controller;
@@ -12,6 +13,7 @@ use Kros\RoutesMGR\Request;
 class RoutesManager{
     private $routes = array();
     private $defaultContentType = 'text/html';
+    private $codeHandler = array();
     public function addRoute($method, $path, $controller, $contentType=null){
         $route = new Route(strtoupper($method), $path, $controller, $contentType==null?$this->defaultContentType:$contentType);
         $this->routes[]=$route;
@@ -75,6 +77,7 @@ class RoutesManager{
         try{
             $req = new Request();
             $req->setUri($uri);
+            $req->setRedirectURL($_SERVER['REDIRECT_URL']);
             //$req->setGetParams(parse_url($uri)['query']);
             $req->setGetParams($_GET);
             $req->setPostParams($_POST);
@@ -91,51 +94,58 @@ class RoutesManager{
                     $getParams=$req->getGetParams();
                     $postParams=$req->getPostParams();
 
-                    $controllerPathParamsMap=$controller->getPathParamsMap();
-                    $controllerGetParamsMap=$controller->getGetParamsMap();
-                    $controllerPostParamsMap=$controller->getPostParamsMap();
-                    $controllerRequestParamsMap=$controller->getRequestParamsMap();
-                    $controllerResponseParamsMap=$controller->getResponseParamsMap();
-
                     $params=array();
-                    //inyeción de los distintos tipos de parámetros
-                    foreach($controller->getControllerParams() as $paramName){
-                        if (key_exists($paramName, $controllerPathParamsMap) && key_exists($controllerPathParamsMap[$paramName], $pathParams)){
-                            $params += [$paramName=>$pathParams[$controllerPathParamsMap[$paramName]]];
-                        }else if (key_exists($paramName, $controllerGetParamsMap) && key_exists($controllerGetParamsMap[$paramName], $getParams)){
-                            $params += [$paramName=>$getParams[$controllerGetParamsMap[$paramName]]];
-                        }else if (key_exists($paramName, $controllerPostParamsMap) && key_exists($controllerPostParamsMap[$paramName], $postParams)){
-                            $params += [$paramName=>$postParams[$controllerPostParamsMap[$paramName]]];
-                        }else if (key_exists($paramName, $controllerRequestParamsMap)){
-                            $params += [$paramName=>$req];
-                        }else if (key_exists($paramName, $controllerResponseParamsMap)){
-                            $params += [$paramName=>$response];
+                    if (count($controller->getControllerParams())>0){
+                        $controllerPathParamsMap=$controller->getPathParamsMap();
+                        $controllerGetParamsMap=$controller->getGetParamsMap();
+                        $controllerPostParamsMap=$controller->getPostParamsMap();
+                        $controllerRequestParamsMap=$controller->getRequestParamsMap();
+                        $controllerResponseParamsMap=$controller->getResponseParamsMap();
+    
+                        //inyeción de los distintos tipos de parámetros
+                        foreach($controller->getControllerParams() as $paramName){
+                            if (key_exists($paramName, $controllerPathParamsMap) && key_exists($controllerPathParamsMap[$paramName], $pathParams)){
+                                $params += [$paramName=>$pathParams[$controllerPathParamsMap[$paramName]]];
+                            }else if (key_exists($paramName, $controllerGetParamsMap) && key_exists($controllerGetParamsMap[$paramName], $getParams)){
+                                $params += [$paramName=>$getParams[$controllerGetParamsMap[$paramName]]];
+                            }else if (key_exists($paramName, $controllerPostParamsMap) && key_exists($controllerPostParamsMap[$paramName], $postParams)){
+                                $params += [$paramName=>$postParams[$controllerPostParamsMap[$paramName]]];
+                            }else if (key_exists($paramName, $controllerRequestParamsMap)){
+                                $params += [$paramName=>$req];
+                            }else if (key_exists($paramName, $controllerResponseParamsMap)){
+                                $params += [$paramName=>$response];
+                            }
                         }
                     }
                     ob_start();
                     $res=$controller->invoke($params);
                     $content = ob_get_clean();
+                    $returnContent=$res?$res:$content;
                     if ($route->getContentType()=='text/html'){
                         header('content-type: text/html; charset=utf-8');
                         echo $content;
                     }else if ($route->getContentType()=='application/json'){
                         header('content-type: application/json; charset=utf-8');
-                        if ($res){
-                            echo json_encode($res);
-                        }else{
-                            echo json_encode($content);
-                        }
+                        echo json_encode($returnContent);
                     }
 
                     return $controller;
                 }
             }
             http_response_code(404);
+            throw new Exception("Controlador no encontrado");
         }catch (\Exception $e){
-            http_response_code(500);
+            if (http_response_code()==200){
+                http_response_code(500);
+            }
             echo "Error: ".$e->getMessage();
+            if ($destination=$this->codeHandler[http_response_code()]){
+                header("Location: $destination");
+            }
         }
     }
-
+    public function addCodeHandler($code, $destination){
+        $this->codeHandler[$code]=$destination;
+    }
 }
 ?>
