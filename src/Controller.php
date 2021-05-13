@@ -1,6 +1,8 @@
 <?php
 namespace Kros\RoutesMGR;
 
+use ReflectionClass;
+
 class Controller{
     private $type;
     private $function;
@@ -80,7 +82,14 @@ class Controller{
             if ($this->type=='FUNCTION'){
                 return call_user_func_array($this->function, $params);
             }else{
-                return call_user_func_array(array($this->class, $this->method), $params);
+                $class = new ReflectionClass($this->class);
+                $method = $class->getMethod($this->method);
+                if ($method->isStatic()){
+                    $object = null;
+                }else{
+                    $object = $class->newInstance();
+                }
+                return $method->invokeArgs($object,$params);
             }
         }catch(\Error $e){
             throw new \Exception($e->getMessage());
