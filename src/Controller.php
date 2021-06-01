@@ -14,6 +14,7 @@ class Controller{
     private $postParamsMap=array();
     private $requestParamsMap=array();
     private $responseParamsMap=array();
+    private $bodyParamsMap=array();
     /**
      * Constructor de la clase
      * @param mixed $controller Controlador: puede ser un string con el nombre de una función o un array con 2 elemenos (nombre de la clase, método)
@@ -38,6 +39,7 @@ class Controller{
         $this->postParamsMap = $this->configureParamsMap('postParam');
         $this->requestParamsMap = $this->configureParamsMap('requestParam');
         $this->responseParamsMap = $this->configureParamsMap('responseParam');
+        $this->bodyParamsMap = $this->configureParamsMap('bodyParam');
     }
     public function getControllerParams(){
         return $this->controllerParams;
@@ -56,6 +58,9 @@ class Controller{
     }
     public function getResponseParamsMap(){
         return $this->responseParamsMap;
+    }
+    public function getBodyParamsMap(){
+        return $this->bodyParamsMap;
     }
     private function configureParamsMap($annotation){
         $res=array();
