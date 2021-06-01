@@ -12,10 +12,10 @@ use Kros\RoutesMGR\Request;
 
 class RoutesManager{
     private $routes = array();
-    private $defaultContentType = 'text/html';
+    private $defaultDataType = 'text/html';
     private $codeHandler = array();
-    public function addRoute($method, $path, $controller, $contentType=null){
-        $route = new Route(strtoupper($method), $path, $controller, $contentType==null?$this->defaultContentType:$contentType);
+    public function addRoute($method, $path, $controller, $dataType=null){
+        $route = new Route(strtoupper($method), $path, $controller, $dataType==null?$this->defaultDataType:$dataType);
         $this->routes[]=$route;
         return $this;
     }
@@ -43,10 +43,10 @@ class RoutesManager{
             $methodPath = trim($methodPath?$methodPath:'');
             $completePath = str_replace('//','/',$basePath.$methodPath);
             $methodType = $this->getAnnotationMatch('method', $methodDocComment);
-            $contentType = $this->getAnnotationMatch('contentType', $methodDocComment);
+            $dataType = $this->getAnnotationMatch('dataType', $methodDocComment);
             if ($methodType){
                 $methodType=strtoupper($methodType);
-                $this->addRoute($methodType, $completePath, array($controllerClass, $methodName), $contentType?$contentType:$this->defaultContentType);
+                $this->addRoute($methodType, $completePath, array($controllerClass, $methodName), $dataType?$dataType:$this->defaultDataType);
             }
         }
         return true;
@@ -84,6 +84,7 @@ class RoutesManager{
             $req->setMethod($_SERVER['REQUEST_METHOD']);
             $req->setBody(file_get_contents("php://input"));
             $req->setAccept($_SERVER['HTTP_ACCEPT']);
+            $req->setContentType($_SERVER['CONTENT_TYPE']);
             $response=null;
             foreach($this->routes as $route){
                 if ($req->getMethod()==$route->getMethod() && $route->match($uri)){
@@ -93,6 +94,7 @@ class RoutesManager{
                     $pathParams=$req->getPathParams();
                     $getParams=$req->getGetParams();
                     $postParams=$req->getPostParams();
+                    $bodyParams=$req->getBodyParams();
 
                     $params=array();
                     if (count($controller->getControllerParams())>0){
@@ -101,6 +103,7 @@ class RoutesManager{
                         $controllerPostParamsMap=$controller->getPostParamsMap();
                         $controllerRequestParamsMap=$controller->getRequestParamsMap();
                         $controllerResponseParamsMap=$controller->getResponseParamsMap();
+                        $controllerBodyParamsMap=$controller->getBodyParamsMap();
     
                         //inyeción de los distintos tipos de parámetros
                         foreach($controller->getControllerParams() as $paramName){
@@ -110,6 +113,8 @@ class RoutesManager{
                                 $params += [$paramName=>$getParams[$controllerGetParamsMap[$paramName]]];
                             }else if (key_exists($paramName, $controllerPostParamsMap) && key_exists($controllerPostParamsMap[$paramName], $postParams)){
                                 $params += [$paramName=>$postParams[$controllerPostParamsMap[$paramName]]];
+                            }else if (key_exists($paramName, $controllerBodyParamsMap) && key_exists($controllerBodyParamsMap[$paramName], $bodyParams)){
+                                $params += [$paramName=>$bodyParams[$controllerBodyParamsMap[$paramName]]];
                             }else if (key_exists($paramName, $controllerRequestParamsMap)){
                                 $params += [$paramName=>$req];
                             }else if (key_exists($paramName, $controllerResponseParamsMap)){
@@ -121,10 +126,10 @@ class RoutesManager{
                     $res=$controller->invoke($params);
                     $content = ob_get_clean();
                     $returnContent=$res?$res:$content;
-                    if ($route->getContentType()=='text/html'){
+                    if ($route->getDataType()=='text/html'){
                         header('content-type: text/html; charset=utf-8');
                         echo $content;
-                    }else if ($route->getContentType()=='application/json'){
+                    }else if ($route->getDataType()=='application/json'){
                         header('content-type: application/json; charset=utf-8');
                         echo json_encode($returnContent);
                     }
