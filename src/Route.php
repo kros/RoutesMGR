@@ -9,16 +9,16 @@ class Route{
     private $method;
     private $path;
     private $controller;
-    private $contentType;
+    private $dataType;
     private $pathParams=array();
     private $pathParamsRegExp = '/{([a-zA-Z0-9_]*)}/i';
     private $pathParamRegExp = '([a-zA-Z0-9_]*)';
     private $pathRegExp;
-    public function __construct($method, $path, $controller, $contentType='text/html'){
+    public function __construct($method, $path, $controller, $dataType='text/html'){
         $this->method = $method;
         $this->path = $path;
         $this->controller = new Controller($controller);
-        $this->contentType = $contentType;
+        $this->dataType = $dataType;
         // obtenemos los parámetros del path
         $count = preg_match_all($this->pathParamsRegExp, $this->path, $pathMatches);
         if ($count > 0){
@@ -50,11 +50,11 @@ class Route{
     public function getPathParams(){
         return $this->pathParams;
     }
-    public function getContentType(){
-        return $this->contentType;
+    public function getDataType(){
+        return $this->dataType;
     }
-    public function setContentType($value){
-        $this->contentType=$value;
+    public function setDataType($value){
+        $this->dataType=$value;
     }
     public function extractPathParamsFromURI($uri){
         $res=array();
