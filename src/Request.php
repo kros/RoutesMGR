@@ -1,15 +1,19 @@
 <?php
 namespace Kros\RoutesMGR;
 
+use Kros\RoutesMGR\ContentType;
+
 class Request{
     private $uri;
     private $getParams;
     private $postParams;
     private $pathParams;
+    private $bodyParams;
     private $body;
     private $method;
     private $accept;
     private $redirectURL;
+    private $contentType;
     public function getUri(){
         return $this->uri;
     }
@@ -63,6 +67,33 @@ class Request{
         array_shift($path); // Hack; get rid of initials empty string
     
         $this->redirectURL=implode('/', $path);
+    }
+    public function setContentType($contentTypeString){
+        $this->contentType = new ContentType($contentTypeString);
+    }
+    public function getContentType(){
+        return $this->contentType;
+    }
+    public function getBodyParams(){
+        $res=[];
+        if ($this->body!=null && trim($this->body)!='' && $this->contentType!=null && $this->contentType->getMediaType()!=null){
+            $mediaType = $this->contentType->getMediaType();
+            if ($mediaType->getType()=='application'){
+                switch ($mediaType->getSubtype()){
+                    case 'json':
+                        $res=json_decode($this->body,true);
+                        break;
+                    case 'x-www-form-urlencoded':
+                        $aParams = explode("&", urldecode($this->body));
+                        foreach($aParams as $param){
+                            [$key,$value]=explode('=', $param);
+                            $res[$key]=$value;
+                        }
+                        break;
+                }
+            }
+        }
+        return $res;
     }
 }
 ?>
