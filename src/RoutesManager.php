@@ -84,7 +84,9 @@ class RoutesManager{
             $req->setMethod($_SERVER['REQUEST_METHOD']);
             $req->setBody(file_get_contents("php://input"));
             $req->setAccept($_SERVER['HTTP_ACCEPT']);
-            $req->setContentType($_SERVER['CONTENT_TYPE']);
+            if (array_key_exists('CONTENT_TYPE',$_SERVER)){
+                $req->setContentType($_SERVER['CONTENT_TYPE']);
+            }
             $response=null;
             foreach($this->routes as $route){
                 if ($req->getMethod()==$route->getMethod() && $route->match($uri)){
