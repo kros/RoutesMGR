@@ -63,10 +63,12 @@ class Request{
         return $this->redirectURL;
     }
     public function setRedirectURL($value){
-        $path = explode('/', $value);
+        $this->redirectURL=$value;
+    }
+    public function getResource(){
+        $path = explode('/', $this->redirectURL);
         array_shift($path); // Hack; get rid of initials empty string
-    
-        $this->redirectURL=implode('/', $path);
+        return implode('/',$path);
     }
     public function setContentType($contentTypeString){
         $this->contentType = new ContentType($contentTypeString);
