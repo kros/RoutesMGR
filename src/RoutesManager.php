@@ -12,6 +12,7 @@ use Kros\RoutesMGR\Request;
 
 class RoutesManager{
     private $routes = array();
+    private $defaultRoutes = array();
     private $defaultDataType = 'text/html';
     private $codeHandler = array();
     public function addRoute($method, $path, $controller, $dataType=null){
@@ -19,8 +20,16 @@ class RoutesManager{
         $this->routes[]=$route;
         return $this;
     }
+    public function addDefaultRoute($method, $path, $controller, $dataType=null){
+        $route = new Route(strtoupper($method), $path, $controller, $dataType==null?$this->defaultDataType:$dataType);
+        $this->defaultRoutes[$method]=$route;
+        return $this;
+    }
     public function getRoutes(){
         return $this->routes;
+    }
+    public function getDefaultRoutes(){
+        return $this->defaultRoutes;
     }
     public function addController($controllerClass){
         try{
@@ -29,9 +38,12 @@ class RoutesManager{
             return false;
         }
         $classDocComment = $refClass->getDocComment();
-        if (!strstr($classDocComment, '@controller')){
+
+        $isDefaultController = strstr($classDocComment, '@defaultController');
+        if (!$isDefaultController && !strstr($classDocComment, '@controller')){
             throw new \Exception("'$controllerClass' not annotated as controller");
         }
+
         $basePath = $this->getAnnotationMatch('path', $classDocComment);
         $basePath = trim($basePath?$basePath:'');
 
@@ -46,13 +58,17 @@ class RoutesManager{
             $dataType = $this->getAnnotationMatch('dataType', $methodDocComment);
             if ($methodType){
                 $methodType=strtoupper($methodType);
-                $this->addRoute($methodType, $completePath, array($controllerClass, $methodName), $dataType?$dataType:$this->defaultDataType);
+                if ($isDefaultController){
+                    $this->addDefaultRoute($methodType, $completePath, array($controllerClass, $methodName), $dataType?$dataType:$this->defaultDataType);
+                }else{
+                    $this->addRoute($methodType, $completePath, array($controllerClass, $methodName), $dataType?$dataType:$this->defaultDataType);
+                }
             }
         }
         return true;
     }
     private function getAnnotationMatch($annotation, $searchString){
-        $count = preg_match_all('/@'.$annotation.'\([ ]*([\/\{\}a-zA-Z0-9_]+)[ ]*\)/', $searchString, $matches);
+        $count = preg_match_all('/@'.$annotation.'\([ ]*([\/\{\}a-zA-Z0-9*_]+)[ ]*\)/', $searchString, $matches);
         if (count($matches)>1 && count($matches[1])>0){
             return $matches[1][0];
         }else{
@@ -89,56 +105,24 @@ class RoutesManager{
             }
             $response=null;
             foreach($this->routes as $route){
-                if ($req->getMethod()==$route->getMethod() && $route->match($uri)){
+                if ($req->getMethod()==$route->getMethod() && $route->match($req->getRedirectURL())){
                     $controller = $route->getController();
                     $req->setPathParams($route->extractPathParamsFromURI($uri));
-
-                    $pathParams=$req->getPathParams();
-                    $getParams=$req->getGetParams();
-                    $postParams=$req->getPostParams();
-                    $bodyParams=$req->getBodyParams();
-
-                    $params=array();
-                    if (count($controller->getControllerParams())>0){
-                        $controllerPathParamsMap=$controller->getPathParamsMap();
-                        $controllerGetParamsMap=$controller->getGetParamsMap();
-                        $controllerPostParamsMap=$controller->getPostParamsMap();
-                        $controllerRequestParamsMap=$controller->getRequestParamsMap();
-                        $controllerResponseParamsMap=$controller->getResponseParamsMap();
-                        $controllerBodyParamsMap=$controller->getBodyParamsMap();
-    
-                        //inyeción de los distintos tipos de parámetros
-                        foreach($controller->getControllerParams() as $paramName){
-                            if (key_exists($paramName, $controllerPathParamsMap) && key_exists($controllerPathParamsMap[$paramName], $pathParams)){
-                                $params += [$paramName=>$pathParams[$controllerPathParamsMap[$paramName]]];
-                            }else if (key_exists($paramName, $controllerGetParamsMap) && key_exists($controllerGetParamsMap[$paramName], $getParams)){
-                                $params += [$paramName=>$getParams[$controllerGetParamsMap[$paramName]]];
-                            }else if (key_exists($paramName, $controllerPostParamsMap) && key_exists($controllerPostParamsMap[$paramName], $postParams)){
-                                $params += [$paramName=>$postParams[$controllerPostParamsMap[$paramName]]];
-                            }else if (key_exists($paramName, $controllerBodyParamsMap) && key_exists($controllerBodyParamsMap[$paramName], $bodyParams)){
-                                $params += [$paramName=>$bodyParams[$controllerBodyParamsMap[$paramName]]];
-                            }else if (key_exists($paramName, $controllerRequestParamsMap)){
-                                $params += [$paramName=>$req];
-                            }else if (key_exists($paramName, $controllerResponseParamsMap)){
-                                $params += [$paramName=>$response];
-                            }
-                        }
-                    }
-                    ob_start();
-                    $res=$controller->invoke($params);
-                    $content = ob_get_clean();
-                    $returnContent=$res?$res:$content;
-                    if ($route->getDataType()=='text/html'){
-                        header('content-type: text/html; charset=utf-8');
-                        echo $content;
-                    }else if ($route->getDataType()=='application/json'){
-                        header('content-type: application/json; charset=utf-8');
-                        echo json_encode($returnContent);
-                    }
+                    $this->process($route, $controller, $req, $response);
 
                     return $controller;
                 }
             }
+            // si llega aquí es que no había ningún controlador adecuado
+            // así que se mira si hay ruta por defecto
+            if ($this->defaultRoutes[$req->getMethod()]){
+                $route = $this->defaultRoutes[$req->getMethod()];
+                $controller = $route->getController();
+                $req->setPathParams($route->extractPathParamsFromURI($uri));
+                $this->process($route, $controller, $req, $response);
+
+                return $controller;
+        }
             http_response_code(404);
             throw new Exception("Controlador no encontrado");
         }catch (\Exception $e){
@@ -149,6 +133,50 @@ class RoutesManager{
             if ($destination=$this->codeHandler[http_response_code()]){
                 header("Location: $destination");
             }
+        }
+    }
+    public function process($route, $controller, $req, $response){
+        $pathParams=$req->getPathParams();
+        $getParams=$req->getGetParams();
+        $postParams=$req->getPostParams();
+        $bodyParams=$req->getBodyParams();
+
+        $params=array();
+        if (count($controller->getControllerParams())>0){
+            $controllerPathParamsMap=$controller->getPathParamsMap();
+            $controllerGetParamsMap=$controller->getGetParamsMap();
+            $controllerPostParamsMap=$controller->getPostParamsMap();
+            $controllerRequestParamsMap=$controller->getRequestParamsMap();
+            $controllerResponseParamsMap=$controller->getResponseParamsMap();
+            $controllerBodyParamsMap=$controller->getBodyParamsMap();
+
+            //inyeción de los distintos tipos de parámetros
+            foreach($controller->getControllerParams() as $paramName){
+                if (key_exists($paramName, $controllerPathParamsMap) && key_exists($controllerPathParamsMap[$paramName], $pathParams)){
+                    $params += [$paramName=>$pathParams[$controllerPathParamsMap[$paramName]]];
+                }else if (key_exists($paramName, $controllerGetParamsMap) && key_exists($controllerGetParamsMap[$paramName], $getParams)){
+                    $params += [$paramName=>$getParams[$controllerGetParamsMap[$paramName]]];
+                }else if (key_exists($paramName, $controllerPostParamsMap) && key_exists($controllerPostParamsMap[$paramName], $postParams)){
+                    $params += [$paramName=>$postParams[$controllerPostParamsMap[$paramName]]];
+                }else if (key_exists($paramName, $controllerBodyParamsMap) && key_exists($controllerBodyParamsMap[$paramName], $bodyParams)){
+                    $params += [$paramName=>$bodyParams[$controllerBodyParamsMap[$paramName]]];
+                }else if (key_exists($paramName, $controllerRequestParamsMap)){
+                    $params += [$paramName=>$req];
+                }else if (key_exists($paramName, $controllerResponseParamsMap)){
+                    $params += [$paramName=>$response];
+                }
+            }
+        }
+        ob_start();
+        $res=$controller->invoke($params);
+        $content = ob_get_clean();
+        $returnContent=$res?$res:$content;
+        if ($route->getDataType()=='text/html'){
+            header('content-type: text/html; charset=utf-8');
+            echo $content;
+        }else if ($route->getDataType()=='application/json'){
+            header('content-type: application/json; charset=utf-8');
+            echo json_encode($returnContent);
         }
     }
     public function addCodeHandler($code, $destination){
