@@ -25,9 +25,11 @@ class Route{
             $this->pathParams = $pathMatches[1];
         }
         // calculamos la expresión regular del path
-        //$pattern = preg_filter($this->pathParamsRegExp, $this->pathParamRegExp, $this->path);
-        $pattern = preg_replace($this->pathParamsRegExp, $this->pathParamRegExp, $this->path);
-        $this->pathRegExp = "/^".str_replace('/','\\/',$pattern)."/i";
+        // Si el path tiene el caracter '*' se hace que pueda admitir cualquier carcater no espacio
+        if ($this->path){
+            $pattern = preg_replace($this->pathParamsRegExp, $this->pathParamRegExp, str_replace('*', '\S*', $this->path));
+            $this->pathRegExp = "/^".str_replace('/','\\/',$pattern)."\z/i";
+        }
     }
     public function getMethod(){
         return $this->method;
