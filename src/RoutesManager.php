@@ -107,7 +107,7 @@ class RoutesManager{
             foreach($this->routes as $route){
                 if ($req->getMethod()==$route->getMethod() && $route->match($req->getRedirectURL())){
                     $controller = $route->getController();
-                    $req->setPathParams($route->extractPathParamsFromURI($uri));
+                    $req->setPathParams($route->extractPathParamsFromURI($req->getRedirectURL()));
                     $this->process($route, $controller, $req, $response);
 
                     return $controller;
