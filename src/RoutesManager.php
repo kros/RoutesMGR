@@ -122,17 +122,15 @@ class RoutesManager{
                 $this->process($route, $controller, $req, $response);
 
                 return $controller;
-        }
-            http_response_code(404);
-            throw new Exception("Controlador no encontrado");
-        }catch (\Exception $e){
-            if (http_response_code()==200){
-                http_response_code(500);
             }
-            echo "Error: ".$e->getMessage();
-            if ($destination=$this->codeHandler[http_response_code()]){
+            http_response_code(404);
+            throw new Exception("Controlador no encontrado para '$uri'");
+        }catch (\Exception $e){
+            if (array_key_exists(http_response_code(), $this->codeHandler)){
+                $destination=$this->codeHandler[http_response_code()];
                 header("Location: $destination");
             }
+            throw $e;
         }
     }
     public function process($route, $controller, $req, $response){
