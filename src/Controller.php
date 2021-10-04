@@ -79,7 +79,7 @@ class Controller{
         return $res;
     }
     private function getAnnotationMatches($annotation){
-        $count = preg_match_all('/@'.$annotation.'\([ ]*([a-zA-Z0-9_]+[ ]*(,[ ]*[a-zA-Z0-9_]+[ ]*)?)\)/', $this->getDocComment(), $matches);
+        $count = preg_match_all('/@'.$annotation.'\([ ]*([a-zA-Z0-9_ñÑ]+[ ]*(,[ ]*[a-zA-Z0-9_ñÑ]+[ ]*)?)\)/', $this->getDocComment(), $matches);
         return $matches[1];
     }
     public function invoke($params=array()){
