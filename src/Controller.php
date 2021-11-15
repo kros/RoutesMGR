@@ -123,7 +123,7 @@ class Controller{
                 return $param;
             }
         }
-        throw new Exception("Parameter '$paramName' doesn't exists in controller method/function");
+        throw new \Exception("Parameter '$paramName' doesn't exists in controller method/function");
     }
     public function isDefaultValueAvailable($paramName){
         return $this->getParameter($paramName)->isDefaultValueAvailable();
