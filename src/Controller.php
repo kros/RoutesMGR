@@ -117,5 +117,19 @@ class Controller{
     public function toString(){
         return ($this->type.": ".($this->type=='FUNCTION'?$this->function:$this->class.'::'.$this->method));
     }
+    public function getParameter($paramName){
+        foreach($this->getParameters() as $param){
+            if ($param->getName()==$paramName){
+                return $param;
+            }
+        }
+        throw new Exception("Parameter '$paramName' doesn't exists in controller method/function");
+    }
+    public function isDefaultValueAvailable($paramName){
+        return $this->getParameter($paramName)->isDefaultValueAvailable();
+    }
+    public function getDefaultValue($paramName){
+        return $this->getParameter($paramName)->getDefaultValue();
+    }
 }
 ?>
