@@ -162,6 +162,8 @@ class RoutesManager{
                     $params += [$paramName=>$req];
                 }else if (key_exists($paramName, $controllerResponseParamsMap)){
                     $params += [$paramName=>$response];
+                }else if ($controller->isDefaultValueAvailable($paramName)){
+                    $params += [$paramName=>$controller->getDefaultValue($paramName)];
                 }
             }
         }
